@@ -14,6 +14,7 @@ import java.util.Optional;
 
 @Repository
 public interface MatchOddsRepository extends JpaRepository<MatchOdds, Long> {
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT mo FROM MatchOdds mo WHERE mo.match.id = :matchId")
     List<MatchOdds> findByMatchIdWithLock(@Param("matchId") Long matchId);
