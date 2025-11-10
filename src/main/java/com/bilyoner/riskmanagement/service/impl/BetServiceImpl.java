@@ -18,6 +18,7 @@ import com.bilyoner.riskmanagement.service.MatchService;
 import com.bilyoner.riskmanagement.service.OddsCalculationService;
 import com.bilyoner.riskmanagement.service.RiskManagementService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BetServiceImpl implements BetService {
@@ -82,8 +84,14 @@ public class BetServiceImpl implements BetService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public BetResponseDto getBetById(Long betId) {
-        return null;
+        Bet bet = betRepository.findByIdWithSelections(betId)
+                .orElseThrow(() -> {
+                    log.error("Bet not found with id: {}", betId);
+                    return new InvalidBetException("Bet not found with id: " + betId);
+                });
+        return betMapper.toResponseDto(bet);
     }
 
     private void validateBetRequest(BetRequestDto betRequest) {

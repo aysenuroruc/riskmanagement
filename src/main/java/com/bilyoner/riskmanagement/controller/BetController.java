@@ -24,7 +24,6 @@ public class BetController {
 
     @GetMapping("/{id}")
     public ResponseEntity<BetResponseDto> getBetById(@PathVariable Long id) {
-        return ResponseEntity.ok(betService.);
-
+        return ResponseEntity.ok(betService.getBetById(id));
     }
 }
