@@ -23,6 +23,7 @@ public class ErrorResponseDto {
     private List<ValidationError> validationErrors;
 
     @Data
+    @Builder
     public static class ValidationError {
         private String field;
         private String message;
