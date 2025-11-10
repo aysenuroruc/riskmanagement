@@ -11,6 +11,5 @@ public class BetSelectionDto {
     private Long matchId;
 
     @NotNull
-    @Schema(required = true, allowableValues = {"1", "X", "2"})
-    private String selectedResult;
+    private String selectedResult;  //allowable values = {"1", "X", "2"}
 }
