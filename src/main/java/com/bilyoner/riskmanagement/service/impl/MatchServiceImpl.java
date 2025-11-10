@@ -17,10 +17,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Service
-@RequiredArgsConstructor
 @Slf4j
+@Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class MatchServiceImpl implements MatchService {
 
     private final MatchRepository matchRepository;

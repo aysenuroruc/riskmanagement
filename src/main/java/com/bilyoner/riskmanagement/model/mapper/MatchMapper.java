@@ -9,8 +9,7 @@ import org.mapstruct.ReportingPolicy;
 import java.util.List;
 
 @Mapper( componentModel = "spring",
-        injectionStrategy = InjectionStrategy.CONSTRUCTOR,
-        unmappedTargetPolicy = ReportingPolicy.IGNORE)
+        injectionStrategy = InjectionStrategy.CONSTRUCTOR)
 public interface MatchMapper {
 
     MatchResponseDto toResponseDto(Match match);

@@ -8,17 +8,10 @@ import java.math.BigDecimal;
 @Data
 public class MatchOddsResponseDto {
 
-    @Schema(example = "MS1")
-    private String resultType;
-
-    private BigDecimal oddsValue;
-
-    private BigDecimal currentRisk;
-
+    private String resultType; // ex: MS1
     private BigDecimal riskLimit;
-
+    private BigDecimal oddsValue;
+    private BigDecimal currentRisk;
     private BigDecimal availableLimit;
-
-    @Schema(example = "0.80")
-    private BigDecimal riskUtilization;
+    private BigDecimal riskUtilization; // ex: 0.80
 }
