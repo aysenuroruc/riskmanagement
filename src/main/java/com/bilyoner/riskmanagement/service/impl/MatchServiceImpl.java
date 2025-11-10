@@ -1,6 +1,7 @@
 package com.bilyoner.riskmanagement.service.impl;
 
 import com.bilyoner.riskmanagement.domain.entity.Match;
+import com.bilyoner.riskmanagement.exception.MatchNotFoundException;
 import com.bilyoner.riskmanagement.model.dto.response.MatchResponseDto;
 import com.bilyoner.riskmanagement.model.mapper.MatchMapper;
 import com.bilyoner.riskmanagement.repository.MatchRepository;
@@ -25,5 +26,20 @@ public class MatchServiceImpl implements MatchService {
     public List<MatchResponseDto> getAllMatches() {
         List<Match> matches = matchRepository.findAll();
         return matchMapper.toResponseDtoList(matches);
+    }
+
+    @Override
+    public MatchResponseDto getMatchById(Long matchId) {
+        Match match = findMatchEntityById(matchId);
+        return matchMapper.toResponseDto(match);
+    }
+
+    @Override
+    public Match findMatchEntityById(Long matchId) {
+        return matchRepository.findByIdWithOdds(matchId)
+                .orElseThrow(() -> {
+                    log.error("Match not found: {}", matchId);
+                    return new MatchNotFoundException(matchId);
+                });
     }
 }
