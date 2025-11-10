@@ -1,6 +1,7 @@
 package com.bilyoner.riskmanagement.controller;
 
 import com.bilyoner.riskmanagement.model.dto.response.MatchResponseDto;
+import com.bilyoner.riskmanagement.model.dto.response.RiskInfoResponseDto;
 import com.bilyoner.riskmanagement.service.MatchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -29,5 +30,10 @@ public class MatchController {
     public ResponseEntity<MatchResponseDto> getMatchById(@PathVariable Long id) {
         MatchResponseDto match = matchService.getMatchById(id);
         return ResponseEntity.ok(match);
+    }
+
+    @GetMapping("/{id}/risk")
+    public ResponseEntity<RiskInfoResponseDto> getMatchRiskInfo(@PathVariable Long id) {
+        return ResponseEntity.ok(matchService.getMatchRiskInfo(id));
     }
 }
