@@ -1,5 +1,9 @@
-package com.bilyoner.riskmanagement.exception;
+package com.bilyoner.riskmanagement.controller;
 
+import com.bilyoner.riskmanagement.exception.BettingException;
+import com.bilyoner.riskmanagement.exception.InsufficientLimitException;
+import com.bilyoner.riskmanagement.exception.InvalidBetException;
+import com.bilyoner.riskmanagement.exception.MatchNotFoundException;
 import com.bilyoner.riskmanagement.model.dto.response.ErrorResponseDto;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
