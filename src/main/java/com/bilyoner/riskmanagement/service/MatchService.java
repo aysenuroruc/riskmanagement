@@ -1,5 +1,9 @@
 package com.bilyoner.riskmanagement.service;
 
-public interface MatchService {
+import com.bilyoner.riskmanagement.model.dto.response.MatchResponseDto;
 
+import java.util.List;
+
+public interface MatchService {
+    List<MatchResponseDto> getAllMatches();
 }

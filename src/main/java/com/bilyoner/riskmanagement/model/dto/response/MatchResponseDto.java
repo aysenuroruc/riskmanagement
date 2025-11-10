@@ -10,19 +10,13 @@ import java.util.List;
 @Data
 public class MatchResponseDto {
     private Long id;
-
     private String homeTeam;
-
     private String awayTeam;
 
     @Schema(example = "Galatasaray - Göztepe")
     private String matchName;
-
     private LocalDateTime matchDate;
-
     private List<MatchOddsResponseDto> odds;
-
     private LocalDateTime createdAt;
-
     private LocalDateTime updatedAt;
 }
