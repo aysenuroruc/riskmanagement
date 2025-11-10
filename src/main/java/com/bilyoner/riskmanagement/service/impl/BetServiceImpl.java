@@ -81,6 +81,11 @@ public class BetServiceImpl implements BetService {
         return betMapper.toResponseDto(savedBet);
     }
 
+    @Override
+    public BetResponseDto getBetById(Long betId) {
+        return null;
+    }
+
     private void validateBetRequest(BetRequestDto betRequest) {
         if (betRequest.getBetAmount() == null || betRequest.getBetAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidBetException("Bet amount must be greater than zero");

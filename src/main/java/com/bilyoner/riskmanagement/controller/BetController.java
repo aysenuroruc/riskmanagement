@@ -7,10 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/bets")
@@ -23,6 +20,11 @@ public class BetController {
     public ResponseEntity<BetResponseDto> placeBet(@Valid @RequestBody BetRequestDto betRequest) {
         BetResponseDto response = betService.placeBet(betRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<BetResponseDto> getBetById(@PathVariable Long id) {
+        return ResponseEntity.ok(betService.);
 
     }
 }

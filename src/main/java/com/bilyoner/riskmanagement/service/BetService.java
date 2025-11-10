@@ -6,4 +6,5 @@ import com.bilyoner.riskmanagement.model.dto.response.BetResponseDto;
 public interface BetService {
     BetResponseDto placeBet(BetRequestDto betRequest);
 
+    BetResponseDto getBetById(Long betId);
 }
