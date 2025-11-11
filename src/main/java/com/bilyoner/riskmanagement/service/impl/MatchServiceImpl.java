@@ -11,7 +11,6 @@ import com.bilyoner.riskmanagement.service.MatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.List;
@@ -19,7 +18,6 @@ import java.util.Map;
 
 @Slf4j
 @Service
-@Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class MatchServiceImpl implements MatchService {
 
@@ -40,7 +38,7 @@ public class MatchServiceImpl implements MatchService {
 
     @Override
     public Match findMatchEntityById(Long matchId) {
-        return matchRepository.findByIdWithOdds(matchId)
+        return matchRepository.findById(matchId)
                 .orElseThrow(() -> {
                     log.error("Match not found: {}", matchId);
                     return new MatchNotFoundException(matchId);
@@ -54,13 +52,7 @@ public class MatchServiceImpl implements MatchService {
         Map<String, RiskInfoResponseDto.RiskDetailDto> riskByResult = new HashMap<>();
 
         for (MatchOdds odds : match.getOdds()) {
-            RiskInfoResponseDto.RiskDetailDto detail = RiskInfoResponseDto.RiskDetailDto.builder()
-                    .currentRisk(odds.getCurrentRisk())
-                    .riskLimit(odds.getRiskLimit())
-                    .availableLimit(odds.getAvailableLimit())
-                    .utilizationPercentage(odds.getRiskUtilization())
-                    .currentOdds(odds.getOddsValue())
-                    .build();
+            RiskInfoResponseDto.RiskDetailDto detail = matchMapper.toRiskDetailDto(odds);
             riskByResult.put(odds.getResultType().getCode(), detail);
         }
 

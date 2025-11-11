@@ -6,9 +6,11 @@ import com.bilyoner.riskmanagement.service.OddsCalculationService;
 import com.bilyoner.riskmanagement.domain.entity.MatchOdds;
 import com.bilyoner.riskmanagement.exception.InvalidOddsException;
 import com.bilyoner.riskmanagement.repository.MatchOddsRepository;
+import com.bilyoner.riskmanagement.model.dto.request.OddsCalculationRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -22,8 +24,9 @@ public class OddsCalculationServiceImpl implements OddsCalculationService {
     private final BettingConfigProperties config;
 
     @Override
+    @Transactional
     public void updateOddsAfterBet(Long matchId, MatchResult selectedResult, BigDecimal betAmount) {
-        List<MatchOdds> allOdds = matchOddsRepository.findByMatchIdWithLock(matchId);
+        List<MatchOdds> allOdds = matchOddsRepository.findAllByMatchId(matchId);
         if (allOdds.size() != 3) {
             throw new InvalidOddsException("Match must have exactly 3 odds entries");
         }
@@ -33,14 +36,8 @@ public class OddsCalculationServiceImpl implements OddsCalculationService {
                 .findFirst()
                 .orElseThrow(() -> new InvalidOddsException("Selected result odds not found"));
 
-        // Calculate new odds for selected result (decrease)
-        BigDecimal newSelectedOdds = calculateNewOdds(
-                selectedOdds.getOddsValue(),
-                selectedOdds.getCurrentRisk(),
-                betAmount,
-                selectedOdds.getRiskLimit(),
-                true
-        );
+        OddsCalculationRequest request = OddsCalculationRequest.from(selectedOdds, betAmount, true);
+        BigDecimal newSelectedOdds = calculateNewOdds(request);
 
         // Calculate adjustment amount for other odds
         BigDecimal oddsReduction = selectedOdds.getOddsValue().subtract(newSelectedOdds);
@@ -68,23 +65,16 @@ public class OddsCalculationServiceImpl implements OddsCalculationService {
     }
 
     @Override
-    public BigDecimal calculateNewOdds(
-            BigDecimal currentOdds,
-            BigDecimal currentRisk,
-            BigDecimal additionalRisk,
-            BigDecimal riskLimit,
-            boolean isSelectedOutcome) {
+    public BigDecimal calculateNewOdds(OddsCalculationRequest request) {
+        BigDecimal newRisk = request.getCurrentRisk().add(request.getAdditionalRisk());
+        BigDecimal riskPercentage = newRisk.divide(request.getRiskLimit(), 4, RoundingMode.HALF_UP);
 
-        // Calculate new risk percentage
-        BigDecimal newRisk = currentRisk.add(additionalRisk);
-        BigDecimal riskPercentage = newRisk.divide(riskLimit, 4, RoundingMode.HALF_UP);
-
-        if (isSelectedOutcome) {
+        if (request.isSelectedOutcome()) {
             // Decrease odds for selected outcome
             BigDecimal reductionFactor = BigDecimal.ONE.subtract(
                     riskPercentage.multiply(config.getOdds().getReductionCoefficient())
             );
-            BigDecimal newOdds = currentOdds.multiply(reductionFactor).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal newOdds = request.getCurrentOdds().multiply(reductionFactor).setScale(2, RoundingMode.HALF_UP);
 
             return newOdds.max(config.getOdds().getMinValue());
         } else {
@@ -92,7 +82,7 @@ public class OddsCalculationServiceImpl implements OddsCalculationService {
             BigDecimal increaseFactor = BigDecimal.ONE.add(
                     riskPercentage.multiply(config.getOdds().getIncreaseCoefficient())
             );
-            return currentOdds.multiply(increaseFactor).setScale(2, RoundingMode.HALF_UP);
+            return request.getCurrentOdds().multiply(increaseFactor).setScale(2, RoundingMode.HALF_UP);
         }
     }
 
