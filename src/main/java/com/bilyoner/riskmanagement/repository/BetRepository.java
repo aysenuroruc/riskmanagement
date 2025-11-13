@@ -1,6 +1,6 @@
 package com.bilyoner.riskmanagement.repository;
 
-import com.bilyoner.riskmanagement.domain.entity.Bet;
+import com.bilyoner.riskmanagement.model.entity.Bet;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

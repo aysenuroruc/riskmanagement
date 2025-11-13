@@ -1,32 +1,31 @@
 package com.bilyoner.riskmanagement.service.impl;
 
-import com.bilyoner.riskmanagement.domain.MatchResult;
-import com.bilyoner.riskmanagement.domain.builder.BetBuilder;
-import com.bilyoner.riskmanagement.domain.entity.Bet;
-import com.bilyoner.riskmanagement.domain.entity.Match;
-import com.bilyoner.riskmanagement.domain.entity.MatchOdds;
+import com.bilyoner.riskmanagement.enums.BetStatus;
 import com.bilyoner.riskmanagement.exception.InvalidBetException;
 import com.bilyoner.riskmanagement.exception.MatchNotFoundException;
-import com.bilyoner.riskmanagement.model.dto.request.BetRequestDto;
-import com.bilyoner.riskmanagement.model.dto.request.BetSelectionDto;
-import com.bilyoner.riskmanagement.model.dto.response.BetResponseDto;
+import com.bilyoner.riskmanagement.model.domain.BetDO;
+import com.bilyoner.riskmanagement.model.domain.BetSelectionDO;
+import com.bilyoner.riskmanagement.model.domain.MatchDO;
+import com.bilyoner.riskmanagement.model.domain.MatchOddsDO;
+import com.bilyoner.riskmanagement.model.entity.Bet;
+import com.bilyoner.riskmanagement.model.entity.BetSelection;
 import com.bilyoner.riskmanagement.model.mapper.BetMapper;
 import com.bilyoner.riskmanagement.repository.BetRepository;
-import com.bilyoner.riskmanagement.repository.MatchOddsRepository;
 import com.bilyoner.riskmanagement.service.BetService;
 import com.bilyoner.riskmanagement.service.MatchService;
-import com.bilyoner.riskmanagement.service.OddsCalculationService;
-import com.bilyoner.riskmanagement.service.RiskManagementService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashSet;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -34,84 +33,139 @@ import java.util.Set;
 public class BetServiceImpl implements BetService {
 
     private final MatchService matchService;
-    private final BetBuilder betBuilder;
     private final BetRepository betRepository;
+    private final MatchOddServiceImpl matchOddService;
     private final BetMapper betMapper;
-    private final MatchOddsRepository matchOddsRepository;
-    private final OddsCalculationService oddsCalculationService;
-    private final RiskManagementService riskManagementService;
 
-    @Override
-    @Transactional
-    public BetResponseDto placeBet(BetRequestDto betRequest) {
-
-        validateBetRequest(betRequest);
-
-        validateNoDuplicateMatches(betRequest.getSelections());
-
-        List<BetBuilder.SelectionData> selectionDataList = new ArrayList<>();
-
-        for (BetSelectionDto selectionDto : betRequest.getSelections()) {
-            Long matchId = selectionDto.getMatchId();
-            MatchResult selectedResult = MatchResult.fromCode(selectionDto.getSelectedResult());
-
-            Match match = matchService.findMatchEntityById(matchId);
-
-            MatchOdds currentOdds = matchOddsRepository.findByMatchIdAndResultType(matchId, selectedResult)
-                    .orElseThrow(() -> new MatchNotFoundException("Odds not found for match: " + matchId));
-
-            riskManagementService.validateRiskLimit(matchId, selectedResult, betRequest.getBetAmount());
-
-            selectionDataList.add(new BetBuilder.SelectionData(
-                    match,
-                    selectedResult,
-                    currentOdds.getOddsValue()
-            ));
-        }
-
-        Bet bet = betBuilder.buildBet(betRequest.getBetAmount(), selectionDataList);
-        Bet savedBet = betRepository.save(bet);
-
-        for (BetSelectionDto selectionDto : betRequest.getSelections()) {
-            MatchResult selectedResult = MatchResult.fromCode(selectionDto.getSelectedResult());
-            oddsCalculationService.updateOddsAfterBet(
-                    selectionDto.getMatchId(),
-                    selectedResult,
-                    betRequest.getBetAmount()
-            );
-        }
-        return betMapper.toResponseDto(savedBet);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public BetResponseDto getBetById(Long betId) {
-        Bet bet = betRepository.findByIdWithSelections(betId)
-                .orElseThrow(() -> {
-                    log.error("Bet not found with id: {}", betId);
-                    return new InvalidBetException("Bet not found with id: " + betId);
-                });
-        return betMapper.toResponseDto(bet);
-    }
-
-    private void validateBetRequest(BetRequestDto betRequest) {
-        if (betRequest.getBetAmount() == null || betRequest.getBetAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new InvalidBetException("Bet amount must be greater than zero");
-        }
-
-        if (betRequest.getSelections() == null || betRequest.getSelections().isEmpty()) {
+    private void validateBetRequest(BetDO betDO) {
+        if (betDO.getSelections() == null || betDO.getSelections().isEmpty()) {
             throw new InvalidBetException("At least one selection is required");
         }
+
+        if (betDO.getBetAmount() == null || betDO.getBetAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidBetException("Bet amount must be greater than zero");
+        }
     }
 
-    private void validateNoDuplicateMatches(List<BetSelectionDto> selections) {
-        Set<Long> matchIds = new HashSet<>();
-        for (BetSelectionDto selection : selections) {
-            if (!matchIds.add(selection.getMatchId())) {
-                throw new InvalidBetException(
-                        "Duplicate match selection not allowed. Match ID: " + selection.getMatchId()
-                );
+    private void validateNoDuplicateMatches(List<BetSelectionDO> selections) {
+
+        Map<Long, List<BetSelectionDO>> selectionsByMatchId =
+                selections.stream()
+                        .collect(Collectors.groupingBy(b -> b.getMatchId()));
+
+        for (Long matchId: selectionsByMatchId.keySet()) {
+            List<BetSelectionDO> betSelectionDOList = selectionsByMatchId.get(matchId);
+            boolean hasDuplicateResult = betSelectionDOList.stream()
+                    .map(BetSelectionDO::getSelectedResult)
+                    .collect(Collectors.toSet())
+                    .size() < betSelectionDOList.size();
+
+            if (hasDuplicateResult) {
+                throw new InvalidBetException("You can't bet to same match result more than one");
             }
         }
+    }
+
+    private void validateRiskLimitExceeded(BetDO betDO, BigDecimal payout) {
+        for (BetSelectionDO betSelectionDO: betDO.getSelections()) {
+            MatchOddsDO matchOddsDO = matchOddService.findAllMatchOddsByMatchIdAndResult(betSelectionDO.getMatchId(), betSelectionDO.getSelectedResult());
+
+            BigDecimal calculatedRisk = matchOddsDO.getCurrentRisk().add(payout);
+
+            if (calculatedRisk.compareTo(matchOddsDO.getRiskLimit()) >= 0) {
+                throw new InvalidBetException("Risk limits are exceeded");
+            }
+        }
+    }
+
+    @Retryable(
+            value = {
+                    org.springframework.dao.PessimisticLockingFailureException.class,
+                    org.springframework.dao.CannotAcquireLockException.class,
+                    org.springframework.dao.ConcurrencyFailureException.class
+            },
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 50)
+    )
+    @Transactional
+    @Override
+    public BetDO placeBet(BetDO betDO) {
+        validateBetRequest(betDO);
+        validateNoDuplicateMatches(betDO.getSelections());
+
+        BigDecimal payout = calculatePayout(betDO);
+        validateRiskLimitExceeded(betDO, payout);
+
+        for (BetSelectionDO betSelectionDO: betDO.getSelections()) {
+            List<MatchOddsDO> matchOddsDOList = matchOddService.findAllMatchOddsByMatchId(betSelectionDO.getMatchId());
+
+            BigDecimal newTotalRisk = calculateNewTotalRisk(betSelectionDO, matchOddsDOList, payout);
+
+            BigDecimal bookSum = calculateBookSum(matchOddsDOList);
+
+            for (MatchOddsDO matchOddsDO: matchOddsDOList) {
+                if (matchOddsDO.getResultType().equals(betSelectionDO.getSelectedResult())) {
+                    betSelectionDO.setOddsAtBetTime(matchOddsDO.getOddsValue());
+                    betSelectionDO.setMatch(findMatch(betSelectionDO.getMatchId()));
+                    BigDecimal currentRisk = matchOddsDO.getCurrentRisk().add(payout);
+
+                    matchOddsDO.setOddsValue(calculateNewOddsValue(currentRisk, newTotalRisk, bookSum));
+                }
+                else {
+                    BigDecimal currentRisk = matchOddsDO.getCurrentRisk();
+                    matchOddsDO.setOddsValue(calculateNewOddsValue(currentRisk, newTotalRisk, bookSum));
+                }
+                matchOddService.updateMatchOdds(matchOddsDO);
+            }
+        }
+
+        Bet bet = betMapper.toEntity(betDO);
+        bet.setCreatedAt(LocalDateTime.now());
+        bet.setUpdatedAt(LocalDateTime.now());
+        bet.setStatus(BetStatus.PENDING);
+        for (BetSelection betSelection: bet.getSelections()) {
+            betSelection.setBet(bet);
+            betSelection.setCreatedAt(LocalDateTime.now());
+        }
+        bet = betRepository.save(bet);
+        return betMapper.toDO(bet);
+    }
+
+    private BigDecimal calculateNewOddsValue(BigDecimal currentRisk, BigDecimal newTotalRisk, BigDecimal bookSum) {
+        BigDecimal riskPay = currentRisk.divide(newTotalRisk, RoundingMode.HALF_UP);
+        BigDecimal payoutRatio = new BigDecimal("1.0000").divide(bookSum, RoundingMode.HALF_UP);
+        return payoutRatio.divide(riskPay, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal calculateBookSum(List<MatchOddsDO> matchOddsDOList) {
+        return matchOddsDOList.stream()
+                .map(m->new BigDecimal("1.00").divide(m.getOddsValue(), RoundingMode.HALF_UP))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal calculatePayout(BetDO betDO) {
+        BigDecimal comboOdds = betDO.getSelections()
+                .stream().map(b -> {
+                    MatchOddsDO matchOddsDO = matchOddService.findAllMatchOddsByMatchIdAndResult(b.getMatchId(), b.getSelectedResult());
+                    return matchOddsDO.getOddsValue();
+                })
+                .reduce(BigDecimal.ONE, BigDecimal::multiply);
+
+        return betDO.getBetAmount().multiply(comboOdds);
+    }
+
+    private BigDecimal calculateNewTotalRisk(BetSelectionDO betSelectionDO, List<MatchOddsDO> matchOddsDOList, BigDecimal payout) {
+        BigDecimal newTotalRisk = matchOddsDOList.stream().map(m->m.getCurrentRisk())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return newTotalRisk.add(payout);
+    }
+
+    private MatchDO findMatch(long matchId) {
+        MatchDO match = matchService.getMatchById(matchId);
+        if (match == null) {
+            throw new MatchNotFoundException("Match not found");
+        }
+        return match;
     }
 }

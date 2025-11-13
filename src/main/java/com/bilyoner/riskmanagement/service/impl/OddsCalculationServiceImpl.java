@@ -1,16 +1,13 @@
 package com.bilyoner.riskmanagement.service.impl;
 
 import com.bilyoner.riskmanagement.config.BettingConfigProperties;
-import com.bilyoner.riskmanagement.domain.MatchResult;
+import com.bilyoner.riskmanagement.model.entity.MatchOdds;
 import com.bilyoner.riskmanagement.service.OddsCalculationService;
-import com.bilyoner.riskmanagement.domain.entity.MatchOdds;
-import com.bilyoner.riskmanagement.exception.InvalidOddsException;
-import com.bilyoner.riskmanagement.repository.MatchOddsRepository;
-import com.bilyoner.riskmanagement.model.dto.request.OddsCalculationRequest;
+import com.bilyoner.riskmanagement.repository.MatchOddRepository;
+import com.bilyoner.riskmanagement.model.dto.request.OddsCalculationRequestDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -20,52 +17,11 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class OddsCalculationServiceImpl implements OddsCalculationService {
-    private final MatchOddsRepository matchOddsRepository;
+    private final MatchOddRepository matchOddRepository;
     private final BettingConfigProperties config;
 
     @Override
-    @Transactional
-    public void updateOddsAfterBet(Long matchId, MatchResult selectedResult, BigDecimal betAmount) {
-        List<MatchOdds> allOdds = matchOddsRepository.findAllByMatchId(matchId);
-        if (allOdds.size() != 3) {
-            throw new InvalidOddsException("Match must have exactly 3 odds entries");
-        }
-
-        MatchOdds selectedOdds = allOdds.stream()
-                .filter(odds -> odds.getResultType() == selectedResult)
-                .findFirst()
-                .orElseThrow(() -> new InvalidOddsException("Selected result odds not found"));
-
-        OddsCalculationRequest request = OddsCalculationRequest.from(selectedOdds, betAmount, true);
-        BigDecimal newSelectedOdds = calculateNewOdds(request);
-
-        // Calculate adjustment amount for other odds
-        BigDecimal oddsReduction = selectedOdds.getOddsValue().subtract(newSelectedOdds);
-        BigDecimal increasePerOther = oddsReduction
-                .multiply(config.getOdds().getIncreaseCoefficient())
-                .divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
-
-
-        // Update selected odds
-        selectedOdds.updateOddsValue(newSelectedOdds, config.getOdds().getMinValue());
-        selectedOdds.addRisk(betAmount);
-
-        // Update other odds (increase)
-        for (MatchOdds odds : allOdds) {
-            if (odds.getResultType() != selectedResult) {
-                BigDecimal newOdds = odds.getOddsValue().add(increasePerOther);
-                odds.setOddsValue(newOdds);
-            }
-        }
-
-        if (!validateNoGuaranteedWin(allOdds)) {
-            adjustOddsToPreventGuaranteedWin(allOdds);
-        }
-        matchOddsRepository.saveAll(allOdds);
-    }
-
-    @Override
-    public BigDecimal calculateNewOdds(OddsCalculationRequest request) {
+    public BigDecimal calculateNewOdds(OddsCalculationRequestDTO request) {
         BigDecimal newRisk = request.getCurrentRisk().add(request.getAdditionalRisk());
         BigDecimal riskPercentage = newRisk.divide(request.getRiskLimit(), 4, RoundingMode.HALF_UP);
 

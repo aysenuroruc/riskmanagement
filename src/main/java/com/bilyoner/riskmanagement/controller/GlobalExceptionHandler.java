@@ -4,7 +4,7 @@ import com.bilyoner.riskmanagement.exception.BettingException;
 import com.bilyoner.riskmanagement.exception.InsufficientLimitException;
 import com.bilyoner.riskmanagement.exception.InvalidBetException;
 import com.bilyoner.riskmanagement.exception.MatchNotFoundException;
-import com.bilyoner.riskmanagement.model.dto.response.ErrorResponseDto;
+import com.bilyoner.riskmanagement.model.dto.response.ErrorResponseDTO;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.http.ResponseEntity;
@@ -18,24 +18,24 @@ import java.util.List;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
     @ExceptionHandler(MatchNotFoundException.class)
-    public ResponseEntity<ErrorResponseDto> handleMatchNotFoundException(MatchNotFoundException ex, HttpServletRequest request) {
+    public ResponseEntity<ErrorResponseDTO> handleMatchNotFoundException(MatchNotFoundException ex, HttpServletRequest request) {
         return buildErrorResponse(HttpStatus.NOT_FOUND, ex.getErrorCode(), ex.getMessage(), request.getRequestURI());
     }
 
     @ExceptionHandler({InsufficientLimitException.class, InvalidBetException.class, BettingException.class})
-    public ResponseEntity<ErrorResponseDto> handleBadRequestExceptions(RuntimeException ex, HttpServletRequest request) {
+    public ResponseEntity<ErrorResponseDTO> handleBadRequestExceptions(RuntimeException ex, HttpServletRequest request) {
         String errorCode = ex instanceof BettingException ? ((BettingException) ex).getErrorCode() : "BAD_REQUEST";
         return buildErrorResponse(HttpStatus.BAD_REQUEST, errorCode, ex.getMessage(), request.getRequestURI());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponseDto> handleValidationException(MethodArgumentNotValidException ex, HttpServletRequest request) {
-        List<ErrorResponseDto.ValidationError> validationErrors = ex.getBindingResult()
+    public ResponseEntity<ErrorResponseDTO> handleValidationException(MethodArgumentNotValidException ex, HttpServletRequest request) {
+        List<ErrorResponseDTO.ValidationError> validationErrors = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
                 .map(this::mapFieldError)
                 .toList();
-        ErrorResponseDto errorResponse = ErrorResponseDto.builder()
+        ErrorResponseDTO errorResponse = ErrorResponseDTO.builder()
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error("VALIDATION_ERROR")
                 .message("Validation failed for request")
@@ -47,17 +47,18 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponseDto> handleIllegalArgumentException(IllegalArgumentException ex, HttpServletRequest request) {
+    public ResponseEntity<ErrorResponseDTO> handleIllegalArgumentException(IllegalArgumentException ex, HttpServletRequest request) {
         return buildErrorResponse(HttpStatus.BAD_REQUEST, "ILLEGAL_ARGUMENT", ex.getMessage(), request.getRequestURI());
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponseDto> handleGenericException(Exception ex, HttpServletRequest request) {
+    public ResponseEntity<ErrorResponseDTO> handleGenericException(Exception ex, HttpServletRequest request) {
+        ex.printStackTrace();
         return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "An unexpected error occurred", request.getRequestURI());
     }
 
-    private ResponseEntity<ErrorResponseDto> buildErrorResponse(HttpStatus status, String error, String message, String path) {
-        ErrorResponseDto errorResponse = ErrorResponseDto.builder()
+    private ResponseEntity<ErrorResponseDTO> buildErrorResponse(HttpStatus status, String error, String message, String path) {
+        ErrorResponseDTO errorResponse = ErrorResponseDTO.builder()
                 .status(status.value())
                 .error(error)
                 .message(message)
@@ -67,8 +68,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(errorResponse);
     }
 
-    private ErrorResponseDto.ValidationError mapFieldError(FieldError fieldError) {
-        return ErrorResponseDto.ValidationError.builder()
+    private ErrorResponseDTO.ValidationError mapFieldError(FieldError fieldError) {
+        return ErrorResponseDTO.ValidationError.builder()
                 .field(fieldError.getField())
                 .message(fieldError.getDefaultMessage())
                 .rejectedValue(fieldError.getRejectedValue())

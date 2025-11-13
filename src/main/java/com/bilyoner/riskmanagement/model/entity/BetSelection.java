@@ -1,12 +1,21 @@
-package com.bilyoner.riskmanagement.domain.entity;
+package com.bilyoner.riskmanagement.model.entity;
 
-import com.bilyoner.riskmanagement.domain.MatchResult;
+import com.bilyoner.riskmanagement.enums.MatchResult;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
-@Table(name = "bet_selections")
+@Table(name = "bet_selection")
 public class BetSelection {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,15 +38,4 @@ public class BetSelection {
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
-
-    public String getMatchName() {
-        return match != null ? match.getMatchName() : "Unknown Match";
-    }
-
-    public String getFormattedSelection() {
-        return String.format("%s - %s @ %.2f",
-                getMatchName(),
-                selectedResult.getCode(),
-                oddsAtBetTime);
-    }
 }

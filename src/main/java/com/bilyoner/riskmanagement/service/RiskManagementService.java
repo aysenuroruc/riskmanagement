@@ -1,6 +1,6 @@
 package com.bilyoner.riskmanagement.service;
 
-import com.bilyoner.riskmanagement.domain.MatchResult;
+import com.bilyoner.riskmanagement.enums.MatchResult;
 
 import java.math.BigDecimal;
 

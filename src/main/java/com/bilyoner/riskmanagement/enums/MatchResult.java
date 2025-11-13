@@ -1,5 +1,6 @@
-package com.bilyoner.riskmanagement.domain;
+package com.bilyoner.riskmanagement.enums;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -20,5 +21,10 @@ public enum MatchResult {
             }
         }
         throw new IllegalArgumentException("Invalid match result code: " + code);
+    }
+
+    @JsonValue
+    public String toJson() {
+        return code;
     }
 }

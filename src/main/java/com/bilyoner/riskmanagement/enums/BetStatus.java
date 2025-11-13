@@ -1,5 +1,6 @@
-package com.bilyoner.riskmanagement.domain.enums;
+package com.bilyoner.riskmanagement.enums;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -13,4 +14,9 @@ public enum BetStatus {
 
     private final String displayName;
     private final String description;
+
+    @JsonValue
+    public String toJson() {
+        return displayName;
+    }
 }

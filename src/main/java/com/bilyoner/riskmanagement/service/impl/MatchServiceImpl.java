@@ -1,20 +1,17 @@
 package com.bilyoner.riskmanagement.service.impl;
 
-import com.bilyoner.riskmanagement.domain.entity.Match;
-import com.bilyoner.riskmanagement.domain.entity.MatchOdds;
-import com.bilyoner.riskmanagement.exception.MatchNotFoundException;
-import com.bilyoner.riskmanagement.model.dto.response.MatchResponseDto;
-import com.bilyoner.riskmanagement.model.dto.response.RiskInfoResponseDto;
+import com.bilyoner.riskmanagement.model.domain.MatchDO;
+import com.bilyoner.riskmanagement.model.dto.response.MatchResponseDTO;
+import com.bilyoner.riskmanagement.model.entity.Match;
 import com.bilyoner.riskmanagement.model.mapper.MatchMapper;
 import com.bilyoner.riskmanagement.repository.MatchRepository;
 import com.bilyoner.riskmanagement.service.MatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.mapstruct.factory.Mappers;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @Service
@@ -22,44 +19,17 @@ import java.util.Map;
 public class MatchServiceImpl implements MatchService {
 
     private final MatchRepository matchRepository;
-    private final MatchMapper matchMapper;
+    MatchMapper matchMapper = Mappers.getMapper(MatchMapper.class);
+
 
     @Override
-    public List<MatchResponseDto> getAllMatches() {
+    public List<MatchResponseDTO> getAllMatches() {
         List<Match> matches = matchRepository.findAll();
         return matchMapper.toResponseDtoList(matches);
     }
 
     @Override
-    public MatchResponseDto getMatchById(Long matchId) {
-        Match match = findMatchEntityById(matchId);
-        return matchMapper.toResponseDto(match);
-    }
-
-    @Override
-    public Match findMatchEntityById(Long matchId) {
-        return matchRepository.findById(matchId)
-                .orElseThrow(() -> {
-                    log.error("Match not found: {}", matchId);
-                    return new MatchNotFoundException(matchId);
-                });
-    }
-
-    @Override
-    public RiskInfoResponseDto getMatchRiskInfo(Long matchId) {
-        Match match = findMatchEntityById(matchId);
-
-        Map<String, RiskInfoResponseDto.RiskDetailDto> riskByResult = new HashMap<>();
-
-        for (MatchOdds odds : match.getOdds()) {
-            RiskInfoResponseDto.RiskDetailDto detail = matchMapper.toRiskDetailDto(odds);
-            riskByResult.put(odds.getResultType().getCode(), detail);
-        }
-
-        return RiskInfoResponseDto.builder()
-                .matchId(match.getId())
-                .matchName(match.getMatchName())
-                .riskByResult(riskByResult)
-                .build();
+    public MatchDO getMatchById(Long id) {
+        return matchMapper.toDO(matchRepository.findById(id).orElse(null));
     }
 }
