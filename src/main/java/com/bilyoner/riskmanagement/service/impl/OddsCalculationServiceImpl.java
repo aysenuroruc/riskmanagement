@@ -1,72 +1,50 @@
 package com.bilyoner.riskmanagement.service.impl;
 
-import com.bilyoner.riskmanagement.config.BettingConfigProperties;
-import com.bilyoner.riskmanagement.model.entity.MatchOdds;
+import com.bilyoner.riskmanagement.constants.BetConstants;
+import com.bilyoner.riskmanagement.model.domain.BetDO;
+import com.bilyoner.riskmanagement.model.domain.MatchOddsDO;
 import com.bilyoner.riskmanagement.service.OddsCalculationService;
-import com.bilyoner.riskmanagement.repository.MatchOddRepository;
-import com.bilyoner.riskmanagement.model.dto.request.OddsCalculationRequestDTO;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 
-@Slf4j
 @Service
-@RequiredArgsConstructor
+@AllArgsConstructor
 public class OddsCalculationServiceImpl implements OddsCalculationService {
-    private final MatchOddRepository matchOddRepository;
-    private final BettingConfigProperties config;
+    private final MatchOddServiceImpl matchOddService;
 
     @Override
-    public BigDecimal calculateNewOdds(OddsCalculationRequestDTO request) {
-        BigDecimal newRisk = request.getCurrentRisk().add(request.getAdditionalRisk());
-        BigDecimal riskPercentage = newRisk.divide(request.getRiskLimit(), 4, RoundingMode.HALF_UP);
-
-        if (request.isSelectedOutcome()) {
-            // Decrease odds for selected outcome
-            BigDecimal reductionFactor = BigDecimal.ONE.subtract(
-                    riskPercentage.multiply(config.getOdds().getReductionCoefficient())
-            );
-            BigDecimal newOdds = request.getCurrentOdds().multiply(reductionFactor).setScale(2, RoundingMode.HALF_UP);
-
-            return newOdds.max(config.getOdds().getMinValue());
-        } else {
-            // Increase odds for other outcomes
-            BigDecimal increaseFactor = BigDecimal.ONE.add(
-                    riskPercentage.multiply(config.getOdds().getIncreaseCoefficient())
-            );
-            return request.getCurrentOdds().multiply(increaseFactor).setScale(2, RoundingMode.HALF_UP);
-        }
+    public BigDecimal calculateNewOddsValue(BigDecimal currentRisk, BigDecimal newTotalRisk, BigDecimal bookSum) {
+        BigDecimal riskPay = currentRisk.divide(newTotalRisk, RoundingMode.HALF_UP);
+        BigDecimal payoutRatio = new BigDecimal(BetConstants.PAYOUT_RATIO).divide(bookSum, RoundingMode.HALF_UP);
+        return payoutRatio.divide(riskPay, RoundingMode.HALF_UP);
     }
 
     @Override
-    public boolean validateNoGuaranteedWin(List<MatchOdds> allOdds) {
-        // Calculate sum of inverse odds (probability sum)
-        // If sum >= 1, it creates a guaranteed win scenario
-        BigDecimal probabilitySum = allOdds.stream()
-                .map(odds -> BigDecimal.ONE.divide(odds.getOddsValue(), 4, RoundingMode.HALF_UP))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        // Must be less than 1.0 to ensure house edge
-        return probabilitySum.compareTo(BigDecimal.ONE.subtract(config.getRisk().getHouseEdgeMargin())) < 0;
+    public BigDecimal calculateBookSum(List<MatchOddsDO> matchOddsDOList) {
+        return matchOddsDOList.stream()
+                .map(m -> BetConstants.ONE.divide(m.getOddsValue(), RoundingMode.HALF_UP))
+                .reduce(BetConstants.ZERO, BigDecimal::add);
     }
 
-    private void adjustOddsToPreventGuaranteedWin(List<MatchOdds> allOdds) {
-        BigDecimal probabilitySum = allOdds.stream()
-                .map(odds -> BigDecimal.ONE.divide(odds.getOddsValue(), 4, RoundingMode.HALF_UP))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    @Override
+    public BigDecimal calculatePayout(BetDO betDO) {
+        BigDecimal comboOdds = betDO.getSelections()
+                .stream().map(b -> {
+                    MatchOddsDO matchOddsDO = matchOddService.findAllMatchOddsByMatchIdAndResult(b.getMatchId(), b.getSelectedResult());
+                    return matchOddsDO.getOddsValue();
+                })
+                .reduce(BetConstants.ONE, BigDecimal::multiply);
+        return betDO.getBetAmount().multiply(comboOdds);
+    }
 
-        BigDecimal targetSum = BigDecimal.ONE.subtract(config.getRisk().getHouseEdgeMargin());
-        BigDecimal adjustmentFactor = probabilitySum.divide(targetSum, 4, RoundingMode.HALF_UP);
-
-        for (MatchOdds odds : allOdds) {
-            BigDecimal adjustedOdds = odds.getOddsValue()
-                    .multiply(adjustmentFactor)
-                    .setScale(2, RoundingMode.HALF_UP);
-            odds.setOddsValue(adjustedOdds.max(config.getOdds().getMinValue()));
-        }
+    @Override
+    public BigDecimal calculateNewTotalRisk(List<MatchOddsDO> matchOddsDOList, BigDecimal payout) {
+        BigDecimal newTotalRisk = matchOddsDOList.stream().map(MatchOddsDO::getCurrentRisk)
+                .reduce(BetConstants.ZERO, BigDecimal::add);
+        return newTotalRisk.add(payout);
     }
 }
