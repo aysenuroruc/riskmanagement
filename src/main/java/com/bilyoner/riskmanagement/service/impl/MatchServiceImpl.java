@@ -9,6 +9,7 @@ import com.bilyoner.riskmanagement.service.MatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.mapstruct.factory.Mappers;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,6 +24,7 @@ public class MatchServiceImpl implements MatchService {
 
 
     @Override
+    @Cacheable("matches-list")
     public List<MatchResponseDTO> getAllMatches() {
         List<Match> matches = matchRepository.findAll();
         return matchMapper.toResponseDtoList(matches);
