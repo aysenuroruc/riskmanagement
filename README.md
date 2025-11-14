@@ -24,8 +24,10 @@ Clone repo, build and run the application.
 
 ### Accessing the Application
 - Application: http://localhost:8080
-- Swagger UI: http://localhost:8080/swagger-ui.html -- swagger for API documentation
+- Swagger UI: http://localhost:8080/swagger-ui.html
 - H2 Console: http://localhost:8080/h2-console
     - JDBC URL: `jdbc:h2:mem:bettingdb
     - Username: `sa`
     - Password: (empty)
+- Micrometer Prometheus: http://localhost:8080/actuator/prometheus
+- To see the custom metric for the number of bets placed, look for `bet_placed_count_total` in the Prometheus.

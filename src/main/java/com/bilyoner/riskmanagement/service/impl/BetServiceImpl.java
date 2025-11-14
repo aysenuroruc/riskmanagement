@@ -15,9 +15,11 @@ import com.bilyoner.riskmanagement.repository.BetRepository;
 import com.bilyoner.riskmanagement.service.BetService;
 import com.bilyoner.riskmanagement.service.MatchService;
 import com.bilyoner.riskmanagement.service.OddsCalculationService;
+import io.micrometer.core.instrument.Counter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
@@ -38,6 +40,8 @@ public class BetServiceImpl implements BetService {
     private final MatchOddServiceImpl matchOddService;
     private final BetMapper betMapper;
     private final OddsCalculationService oddsCalculationService;
+    private final @Lazy BetService self;
+    private final Counter betPlacedCounter;
 
     @Retryable(
             value = {
@@ -58,11 +62,17 @@ public class BetServiceImpl implements BetService {
         updateOddsAndSelections(betDO, payout);
         Bet bet = createBetEntity(betDO);
         bet = saveBet(bet);
+        betPlacedCounter.increment();
         return betMapper.toDO(bet);
     }
 
+    @Override
     @CacheEvict(value = "matches-list", allEntries = true)
-    public void updateOddsAndSelections(BetDO betDO, BigDecimal payout) {
+    public void evictMatchesListCache() {
+        // this method for just evicting cache
+    }
+
+    private void updateOddsAndSelections(BetDO betDO, BigDecimal payout) {
         for (BetSelectionDO betSelectionDO : betDO.getSelections()) {
             List<MatchOddsDO> matchOddsDOList = matchOddService.findAllMatchOddsByMatchId(betSelectionDO.getMatchId());
             BigDecimal newTotalRisk = oddsCalculationService.calculateNewTotalRisk(matchOddsDOList, payout);
@@ -78,6 +88,7 @@ public class BetServiceImpl implements BetService {
                 matchOddService.updateMatchOdds(matchOddsDO);
             }
         }
+        self.evictMatchesListCache();
     }
 
     private Bet createBetEntity(BetDO betDO) {

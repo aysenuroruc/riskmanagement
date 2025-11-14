@@ -5,6 +5,8 @@ import com.bilyoner.riskmanagement.exception.InsufficientLimitException;
 import com.bilyoner.riskmanagement.exception.InvalidBetException;
 import com.bilyoner.riskmanagement.exception.MatchNotFoundException;
 import com.bilyoner.riskmanagement.model.dto.response.ErrorResponseDTO;
+import io.micrometer.core.instrument.Counter;
+import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +18,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @RestControllerAdvice
+@AllArgsConstructor
 public class GlobalExceptionHandler {
+
+    private final Counter invalidBetCounter;
+
     @ExceptionHandler(MatchNotFoundException.class)
     public ResponseEntity<ErrorResponseDTO> handleMatchNotFoundException(MatchNotFoundException ex, HttpServletRequest request) {
         return buildErrorResponse(HttpStatus.NOT_FOUND, ex.getErrorCode(), ex.getMessage(), request.getRequestURI());
@@ -24,6 +30,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({InsufficientLimitException.class, InvalidBetException.class, BettingException.class})
     public ResponseEntity<ErrorResponseDTO> handleBadRequestExceptions(RuntimeException ex, HttpServletRequest request) {
+        invalidBetCounter.increment();
         String errorCode = ex instanceof BettingException ? ((BettingException) ex).getErrorCode() : "BAD_REQUEST";
         return buildErrorResponse(HttpStatus.BAD_REQUEST, errorCode, ex.getMessage(), request.getRequestURI());
     }
