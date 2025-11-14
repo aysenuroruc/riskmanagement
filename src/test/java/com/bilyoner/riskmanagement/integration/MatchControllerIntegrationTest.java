@@ -1,4 +1,4 @@
-package com.bilyoner.riskmanagement;
+package com.bilyoner.riskmanagement.integration;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,5 +35,4 @@ public class MatchControllerIntegrationTest {
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.odds").isArray());
     }
-
 }

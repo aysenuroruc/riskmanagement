@@ -12,14 +12,10 @@ import com.bilyoner.riskmanagement.model.entity.Bet;
 import com.bilyoner.riskmanagement.model.entity.BetSelection;
 import com.bilyoner.riskmanagement.model.mapper.BetMapper;
 import com.bilyoner.riskmanagement.repository.BetRepository;
-import com.bilyoner.riskmanagement.service.BetService;
-import com.bilyoner.riskmanagement.service.CacheEvictService;
-import com.bilyoner.riskmanagement.service.MatchService;
-import com.bilyoner.riskmanagement.service.OddsCalculationService;
+import com.bilyoner.riskmanagement.service.*;
 import io.micrometer.core.instrument.Counter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
@@ -39,7 +35,7 @@ public class BetServiceImpl implements BetService {
     private final Counter betPlacedCounter;
     private final MatchService matchService;
     private final BetRepository betRepository;
-    private final MatchOddServiceImpl matchOddService;
+    private final MatchOddService matchOddService;
     private final CacheEvictService cacheEvictService;
     private final OddsCalculationService oddsCalculationService;
 

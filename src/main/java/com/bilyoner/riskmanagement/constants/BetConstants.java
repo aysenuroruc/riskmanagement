@@ -10,10 +10,8 @@ public final class BetConstants {
     public static final String ERR_DUPLICATE_RESULT = "You can't bet to same match result more than one";
     public static final String ERR_RISK_LIMIT = "Risk limits are exceeded";
     public static final String ERR_MATCH_NOT_FOUND = "Match not found";
-    public static final BigDecimal ONE = BigDecimal.ONE;
+    public static final BigDecimal ONE = new BigDecimal("1.0000");
     public static final BigDecimal ZERO = BigDecimal.ZERO;
-    public static final int ODDS_SCALE = 2;
-    public static final int DIVIDE_SCALE = 4;
     public static final String PAYOUT_RATIO = "1.0000";
 }
 

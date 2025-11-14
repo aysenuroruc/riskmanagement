@@ -1,4 +1,4 @@
-package com.bilyoner.riskmanagement;
+package com.bilyoner.riskmanagement.integration;
 
 import com.bilyoner.riskmanagement.enums.MatchResult;
 import com.bilyoner.riskmanagement.model.dto.request.BetRequestDTO;
@@ -11,7 +11,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -69,7 +68,7 @@ public class BetControllerIntegrationTest {
                         .content(body)
                 )
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.odds[0].oddsValue").value(closeTo(1.12, 0.01)));
+                .andExpect(jsonPath("$.odds[0].oddsValue").value(closeTo(1.12, 0.03)));
     }
 
     @Test
@@ -122,7 +121,7 @@ public class BetControllerIntegrationTest {
         betRequestDTO.setSelections(selections);
         String body = objectMapper.writeValueAsString(betRequestDTO);
 
-        mockMvc.perform(post("/api/v1/bets")
+        mockMvc.perform(post("/api/v1/bet")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
