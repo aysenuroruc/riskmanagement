@@ -17,6 +17,7 @@ import com.bilyoner.riskmanagement.service.MatchService;
 import com.bilyoner.riskmanagement.service.OddsCalculationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
@@ -60,7 +61,8 @@ public class BetServiceImpl implements BetService {
         return betMapper.toDO(bet);
     }
 
-    private void updateOddsAndSelections(BetDO betDO, BigDecimal payout) {
+    @CacheEvict(value = "matches-list", allEntries = true)
+    public void updateOddsAndSelections(BetDO betDO, BigDecimal payout) {
         for (BetSelectionDO betSelectionDO : betDO.getSelections()) {
             List<MatchOddsDO> matchOddsDOList = matchOddService.findAllMatchOddsByMatchId(betSelectionDO.getMatchId());
             BigDecimal newTotalRisk = oddsCalculationService.calculateNewTotalRisk(matchOddsDOList, payout);

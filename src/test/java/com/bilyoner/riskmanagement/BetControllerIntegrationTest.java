@@ -18,6 +18,8 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 
 import static org.hamcrest.Matchers.closeTo;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -29,6 +31,8 @@ public class BetControllerIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
     void shouldReturnMatchWithCorrectOddsAfterBetIsPlaced() throws Exception {
@@ -52,19 +56,19 @@ public class BetControllerIntegrationTest {
         betSelectionDTO.setSelectedResult(MatchResult.MSX);
 
         betRequestDTO.getSelections().add(betSelectionDTO);
-        String body = new ObjectMapper().writeValueAsString(betRequestDTO);
+        String body = objectMapper.writeValueAsString(betRequestDTO);
 
-        mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/bet")
+        mockMvc.perform(post("/api/v1/bet")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body)
                 )
-                .andExpect(status().is2xxSuccessful());
+                .andExpect(status().isCreated());
 
-        mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/match/1")
+        mockMvc.perform(get("/api/v1/match/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body)
                 )
-                .andExpect(status().is2xxSuccessful())
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.odds[0].oddsValue").value(closeTo(1.12, 0.01)));
     }
 
@@ -90,12 +94,37 @@ public class BetControllerIntegrationTest {
         betSelectionDTO.setSelectedResult(MatchResult.MSX);
 
         betRequestDTO.getSelections().add(betSelectionDTO);
-        String body = new ObjectMapper().writeValueAsString(betRequestDTO);
+        String body = objectMapper.writeValueAsString(betRequestDTO);
 
-        mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/bet")
+        mockMvc.perform(post("/api/v1/bet")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body)
                 )
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldReturn400WhenDuplicateResultsInSelections() throws Exception {
+        BetRequestDTO betRequestDTO = new BetRequestDTO();
+        betRequestDTO.setBetAmount(new BigDecimal("50.0"));
+        ArrayList<BetSelectionDTO> selections = new ArrayList<>();
+
+        BetSelectionDTO s1 = new BetSelectionDTO();
+        s1.setMatchId(1);
+        s1.setSelectedResult(MatchResult.MS1);
+        selections.add(s1);
+
+        BetSelectionDTO s2 = new BetSelectionDTO();
+        s2.setMatchId(1); // aynı maç
+        s2.setSelectedResult(MatchResult.MS1); // duplicate result
+        selections.add(s2);
+
+        betRequestDTO.setSelections(selections);
+        String body = objectMapper.writeValueAsString(betRequestDTO);
+
+        mockMvc.perform(post("/api/v1/bets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
                 .andExpect(status().isBadRequest());
     }
 }
