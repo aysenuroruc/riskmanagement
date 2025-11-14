@@ -13,12 +13,12 @@ import com.bilyoner.riskmanagement.model.entity.BetSelection;
 import com.bilyoner.riskmanagement.model.mapper.BetMapper;
 import com.bilyoner.riskmanagement.repository.BetRepository;
 import com.bilyoner.riskmanagement.service.BetService;
+import com.bilyoner.riskmanagement.service.CacheEvictService;
 import com.bilyoner.riskmanagement.service.MatchService;
 import com.bilyoner.riskmanagement.service.OddsCalculationService;
 import io.micrometer.core.instrument.Counter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
@@ -35,13 +35,13 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class BetServiceImpl implements BetService {
+    private final BetMapper betMapper;
+    private final Counter betPlacedCounter;
     private final MatchService matchService;
     private final BetRepository betRepository;
     private final MatchOddServiceImpl matchOddService;
-    private final BetMapper betMapper;
+    private final CacheEvictService cacheEvictService;
     private final OddsCalculationService oddsCalculationService;
-    private final @Lazy BetService self;
-    private final Counter betPlacedCounter;
 
     @Retryable(
             value = {
@@ -66,12 +66,6 @@ public class BetServiceImpl implements BetService {
         return betMapper.toDO(bet);
     }
 
-    @Override
-    @CacheEvict(value = "matches-list", allEntries = true)
-    public void evictMatchesListCache() {
-        // this method for just evicting cache
-    }
-
     private void updateOddsAndSelections(BetDO betDO, BigDecimal payout) {
         for (BetSelectionDO betSelectionDO : betDO.getSelections()) {
             List<MatchOddsDO> matchOddsDOList = matchOddService.findAllMatchOddsByMatchId(betSelectionDO.getMatchId());
@@ -88,7 +82,7 @@ public class BetServiceImpl implements BetService {
                 matchOddService.updateMatchOdds(matchOddsDO);
             }
         }
-        self.evictMatchesListCache();
+        cacheEvictService.evictMatchesList();
     }
 
     private Bet createBetEntity(BetDO betDO) {
