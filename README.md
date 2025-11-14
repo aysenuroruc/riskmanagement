@@ -31,3 +31,6 @@ Clone repo, build and run the application.
     - Password: (empty)
 - Micrometer Prometheus: http://localhost:8080/actuator/prometheus
 - To see the custom metric for the number of bets placed, look for `bet_placed_count_total` in the Prometheus.
+
+
+                    --- !!! You can test the project on the master branch. !!! ---
